@@ -6,8 +6,8 @@ import requests
 # Set up page config
 st.set_page_config(page_title="Kroger Supplier Onboarding", page_icon="🛒")
 
-# --- KROGER LOGO (Fixed using official corporate site media) ---
-st.image("https://www.thekrogerco.com/wp-content/uploads/2019/11/Kroger-Logo.png", width=200)
+# --- KROGER LOGO (Updated to static Google image link) ---
+st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2wAZOzqwlQiRXdCY4ziKoirVvgKpt6wbnWw&s", width=200)
 
 st.title("🛒 Supplier Data Onboarding Portal")
 st.subheader("Validate your product feed before Salsify ingestion")
@@ -73,86 +73,4 @@ if st.session_state["authenticated"]:
         # Check A: Missing Columns
         missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
         if missing_cols:
-            errors.append(f"**Missing Columns:** Your file is missing required Salsify headers: `{', '.join(missing_cols)}`")
-            is_valid = False
-            
-        if not missing_cols:
-            # Check B: Missing SKUs
-            missing_skus = df["SKU"].isnull().sum()
-            if missing_skus > 0:
-                errors.append(f"**Missing Data:** Found {missing_skus} row(s) missing a `SKU` value.")
-                is_valid = False
-                
-            # Check C: Price is a number
-            clean_prices = pd.to_numeric(df["Price"], errors='coerce')
-            if clean_prices.isnull().sum() > df["Price"].isnull().sum():
-                errors.append("**Data Type Error:** The `Price` column contains letters or symbols. It must be numbers only.")
-                is_valid = False
-                
-            # Check D: Brand Validation
-            invalid_rows = df[~df["Brand"].isin(APPROVED_BRANDS) & df["Brand"].notnull()]
-            if not invalid_rows.empty:
-                bad_brands = invalid_rows["Brand"].unique()
-                errors.append(f"**Invalid Brand Name:** Found unapproved brands: `{', '.join(map(str, bad_brands))}`. Allowed Salsify list: {APPROVED_BRANDS}")
-                is_valid = False
-
-            # Check E: Main Image is a valid URL
-            invalid_urls = df[~df["Main Image"].astype(str).str.startswith(('http://', 'https://'), na=False) & df["Main Image"].notnull()]
-            if not invalid_urls.empty:
-                errors.append("**Invalid Image URL:** The `Main Image` column must contain a valid public link starting with `http://` or `https://`.")
-                is_valid = False
-
-        # SHOW RESULTS TO SUPPLIER
-        if not is_valid:
-            st.error("❌ Validation Failed! Please fix the errors below and re-upload.")
-            for err in errors:
-                st.markdown(err)
-        else:
-            st.success("✅ Validation Passed! Your file matches the Salsify PXM template perfectly.")
-            
-            # --- 4. THE REAL API HANDOFF ---
-            if st.button("🚀 Push Clean Data to Salsify"):
-                with st.spinner("Authenticating and pushing to Salsify..."):
-                    
-                    # Salsify Configuration
-                    org_id = "s-ed0a6d00-4fff-4c27-9a21-3a511984007d"
-                    salsify_url = f"https://app.salsify.com/api/v1/orgs/{org_id}/products"
-                    salsify_token = "ZDIYg45PzejWjHR-6TfpUTfQM8FfirbrD5ukT1ajzGY"
-                    
-                    headers = {
-                        "Authorization": f"Bearer {salsify_token}",
-                        "Content-Type": "application/json",
-                        "Accept": "application/json"
-                    }
-                    
-                    # Convert the Pandas dataframe into a list of dictionaries
-                    products = df.to_dict(orient='records')
-                    success_count = 0
-                    error_messages = []
-                    
-                    # Loop through each row and POST to Salsify
-                    for product in products:
-                        # Salsify generally requires the unique identifier mapped in the payload. 
-                        # We pass the entire row as the payload attributes.
-                        try:
-                            response = requests.post(salsify_url, headers=headers, json=product)
-                            
-                            # 200, 201, 202, 204 are successful HTTP codes
-                            if response.status_code in [200, 201, 202, 204]: 
-                                success_count += 1
-                            else:
-                                error_messages.append(f"SKU {product.get('SKU')}: {response.status_code} - {response.text}")
-                                
-                        except Exception as e:
-                            error_messages.append(f"SKU {product.get('SKU')}: Connection failed - {e}")
-                    
-                    # Report results back to the user
-                    if success_count == len(products):
-                        st.balloons()
-                        st.success(f"Boom! {success_count} products successfully ingested into Salsify.")
-                    else:
-                        st.warning(f"{success_count} out of {len(products)} products were ingested.")
-                        if error_messages:
-                            st.error("The following errors occurred during API transmission:")
-                            for err in error_messages:
-                                st.markdown(f"- {err}")
+            errors.append(f"**Missing Columns:** Your file is missing required Salsify headers: `{', '.join(
