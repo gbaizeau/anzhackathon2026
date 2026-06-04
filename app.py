@@ -60,6 +60,9 @@ if st.session_state["authenticated"]:
             df = pd.read_csv(uploaded_file)
         elif uploaded_file.name.endswith('.xlsx'):
             df = pd.read_excel(uploaded_file)
+            
+        # THE FIX: Strip invisible spaces from column headers
+        df.columns = df.columns.str.strip()
         
         st.markdown("### 🔍 Step 1: Previewing Uploaded Data")
         st.dataframe(df.head(5), use_container_width=True)
@@ -73,9 +76,8 @@ if st.session_state["authenticated"]:
         # Check A: Missing Columns
         missing_cols = [col for col in REQUIRED_COLUMNS if col not in df.columns]
         if missing_cols:
-            # FIXED SYNTAX ERROR: Pulled the join string creation out of the f-string
             missing_str = ", ".join(missing_cols)
-            errors.append(f"**Missing Columns:** Your file is missing required Salsify headers: `{missing_str}`")
+            errors.append(f"**Missing Columns:** Your file is missing required Salsify headers: `{missing_str}` *(Note: Check for spelling, it must be exact)*")
             is_valid = False
             
         if not missing_cols:
@@ -92,16 +94,18 @@ if st.session_state["authenticated"]:
                 is_valid = False
                 
             # Check D: Brand Validation
-            invalid_rows = df[~df["Brand"].isin(APPROVED_BRANDS) & df["Brand"].notnull()]
+            # Added str.strip() here too, just in case the brand values also have hidden spaces!
+            df["Brand"] = df["Brand"].astype(str).str.strip()
+            invalid_rows = df[~df["Brand"].isin(APPROVED_BRANDS) & df["Brand"].notnull() & (df["Brand"] != 'nan')]
             if not invalid_rows.empty:
                 bad_brands = invalid_rows["Brand"].unique()
-                # FIXED SYNTAX ERROR: Pulled the join string creation out of the f-string
                 bad_brands_str = ", ".join(map(str, bad_brands))
                 errors.append(f"**Invalid Brand Name:** Found unapproved brands: `{bad_brands_str}`. Allowed Salsify list: {APPROVED_BRANDS}")
                 is_valid = False
 
             # Check E: Main Image is a valid URL
-            invalid_urls = df[~df["Main Image"].astype(str).str.startswith(('http://', 'https://'), na=False) & df["Main Image"].notnull()]
+            df["Main Image"] = df["Main Image"].astype(str).str.strip()
+            invalid_urls = df[~df["Main Image"].str.startswith(('http://', 'https://'), na=False) & df["Main Image"].notnull() & (df["Main Image"] != 'nan')]
             if not invalid_urls.empty:
                 errors.append("**Invalid Image URL:** The `Main Image` column must contain a valid public link starting with `http://` or `https://`.")
                 is_valid = False
