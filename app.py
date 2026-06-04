@@ -6,9 +6,8 @@ import requests
 # Set up page config
 st.set_page_config(page_title="Kroger Supplier Onboarding", page_icon="🛒")
 
-# --- KROGER LOGO ---
-# Using a reliable public PNG of the Kroger logo
-st.image("https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Kroger_logo_%282019%29.svg/800px-Kroger_logo_%282019%29.svg.png", width=200)
+# --- KROGER LOGO (Fixed using HTML so it bypasses Streamlit download blocks) ---
+st.markdown("<img src='https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Kroger_logo_%282019%29.svg/500px-Kroger_logo_%282019%29.svg.png' width='200'>", unsafe_allow_html=True)
 
 st.title("🛒 Supplier Data Onboarding Portal")
 st.subheader("Validate your product feed before Salsify ingestion")
@@ -41,7 +40,8 @@ if not st.session_state["authenticated"]:
             st.success("✅ Token verified! Access granted.")
             st.rerun()  # Refreshes the page to show the hidden UI
         else:
-            st.error("❌ Invalid Access Token. Please try again.")
+            # Updated error message
+            st.error("❌ Your access token is invalid. Please contact Salsify Support.")
 
 # --- 3. MAIN APP (ONLY SHOWS IF AUTHENTICATED) ---
 if st.session_state["authenticated"]:
@@ -108,11 +108,12 @@ if st.session_state["authenticated"]:
             if st.button("🚀 Push Clean Data to Salsify"):
                 with st.spinner("Authenticating and pushing to Salsify..."):
                     
+                    # Convert the Pandas dataframe into a JSON payload
                     payload = df.to_dict(orient='records')
                     
-                    # NOTE: Check your Salsify docs for your specific endpoint.
+                    # NOTE: We will update this block in the next step when you provide the token!
                     salsify_url = "https://app.salsify.com/api/v1/products" 
-                    salsify_token = "YOUR_SALSIFY_TOKEN_HERE" # Paste your token here
+                    salsify_token = "YOUR_SALSIFY_TOKEN_HERE" 
                     
                     headers = {
                         "Authorization": f"Bearer {salsify_token}",
@@ -121,8 +122,6 @@ if st.session_state["authenticated"]:
                     }
                     
                     try:
-                        # Mocking the API call for safety if the token isn't real yet. 
-                        # To make it real, uncomment the response logic below.
                         response = requests.post(salsify_url, headers=headers, json=payload)
                         
                         if response.status_code in [200, 201, 202, 204]: 
