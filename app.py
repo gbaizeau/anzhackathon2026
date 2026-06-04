@@ -7,7 +7,6 @@ import requests
 st.set_page_config(page_title="Kroger Supplier Onboarding", page_icon="🛒")
 
 # --- HEADER LOGOS ---
-# Create two columns to push the logos to opposite sides
 col1, col2 = st.columns(2)
 
 with col1:
@@ -131,6 +130,8 @@ if st.session_state["authenticated"]:
 
         # SHOW RESULTS TO SUPPLIER
         if not is_valid:
+            # Add the Homer D'oh GIF here!
+            st.image("https://media.tenor.com/gK1B9l9B7xQAAAAC/homer-simpson-doh.gif", width=250)
             st.error("❌ Validation Failed! Please fix the errors below and re-upload.")
             for err in errors:
                 st.markdown(err)
