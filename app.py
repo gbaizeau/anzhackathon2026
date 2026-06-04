@@ -6,7 +6,7 @@ import requests
 # Set up page config
 st.set_page_config(page_title="Kroger Supplier Onboarding", page_icon="🛒")
 
-# --- KROGER LOGO (Updated to static Google image link) ---
+# --- KROGER LOGO ---
 st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2wAZOzqwlQiRXdCY4ziKoirVvgKpt6wbnWw&s", width=200)
 
 st.title("🛒 Supplier Data Onboarding Portal")
@@ -14,7 +14,7 @@ st.subheader("Validate your product feed before Salsify ingestion")
 
 # --- 1. DEFINE ALLOWED TOKENS & SALSIFY TEMPLATE REQUIREMENTS ---
 ALLOWED_TOKENS = [
-    "GREG", # Fast-access token
+    "GREG", 
     "KROGER-2026-ALPHA",
     "KROGER-2026-BETA",
     "KROGER-2026-GAMMA",
@@ -61,7 +61,7 @@ if st.session_state["authenticated"]:
         elif uploaded_file.name.endswith('.xlsx'):
             df = pd.read_excel(uploaded_file)
             
-        # THE FIX: Strip invisible spaces from column headers
+        # Strip invisible spaces from column headers
         df.columns = df.columns.str.strip()
         
         st.markdown("### 🔍 Step 1: Previewing Uploaded Data")
@@ -87,14 +87,18 @@ if st.session_state["authenticated"]:
                 errors.append(f"**Missing Data:** Found {missing_skus} row(s) missing a `SKU` value.")
                 is_valid = False
                 
-            # Check C: Price is a number
-            clean_prices = pd.to_numeric(df["Price"], errors='coerce')
-            if clean_prices.isnull().sum() > df["Price"].isnull().sum():
-                errors.append("**Data Type Error:** The `Price` column contains letters or symbols. It must be numbers only.")
+            # Check C: Flexible Price Validation & Cleaning
+            original_nulls = df["Price"].isnull()
+            cleaned_price_strings = df["Price"].astype(str).str.replace(r'[^\d.]', '', regex=True)
+            clean_prices = pd.to_numeric(cleaned_price_strings, errors='coerce')
+            
+            if clean_prices.isnull().sum() > original_nulls.sum():
+                errors.append("**Data Type Error:** The `Price` column contains text that cannot be converted to a pure number.")
                 is_valid = False
+            else:
+                df["Price"] = clean_prices
                 
             # Check D: Brand Validation
-            # Added str.strip() here too, just in case the brand values also have hidden spaces!
             df["Brand"] = df["Brand"].astype(str).str.strip()
             invalid_rows = df[~df["Brand"].isin(APPROVED_BRANDS) & df["Brand"].notnull() & (df["Brand"] != 'nan')]
             if not invalid_rows.empty:
@@ -140,10 +144,13 @@ if st.session_state["authenticated"]:
                     
                     # Loop through each row and POST to Salsify
                     for product in products:
+                        
+                        # THE FIX: Map the SKU to the required Salsify 'Record ID' property
+                        product["Record ID"] = product["SKU"]
+                        
                         try:
                             response = requests.post(salsify_url, headers=headers, json=product)
                             
-                            # 200, 201, 202, 204 are successful HTTP codes
                             if response.status_code in [200, 201, 202, 204]: 
                                 success_count += 1
                             else:
