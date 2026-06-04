@@ -81,11 +81,10 @@ if st.session_state["authenticated"]:
             is_valid = False
             
         if not missing_cols:
-            # THE FIX: Force SKU to be a string and strip any rogue '.0' decimals from Excel
+            # Force SKU to be a string and strip any rogue '.0' decimals from Excel
             df["SKU"] = df["SKU"].astype(str).str.replace(r'\.0$', '', regex=True)
 
             # Check B: Missing SKUs
-            # Note: Because we converted to string, "nan" might appear if it was empty. 
             missing_skus = df["SKU"].isin(['nan', 'None', '']).sum()
             if missing_skus > 0:
                 errors.append(f"**Missing Data:** Found {missing_skus} row(s) missing a `SKU` value.")
@@ -152,16 +151,20 @@ if st.session_state["authenticated"]:
                         # Map the strictly-formatted string SKU to the required Salsify 'Record ID'
                         product["Record ID"] = product["SKU"]
                         
+                        # THE FIX: Clean up the payload before sending it to Salsify
+                        product.pop("SKU", None)         # Remove SKU since it's mapped to Record ID
+                        product.pop("Main Image", None)  # Remove URL to prevent digital asset property errors
+                        
                         try:
                             response = requests.post(salsify_url, headers=headers, json=product)
                             
                             if response.status_code in [200, 201, 202, 204]: 
                                 success_count += 1
                             else:
-                                error_messages.append(f"SKU {product.get('SKU')}: {response.status_code} - {response.text}")
+                                error_messages.append(f"SKU {product.get('Record ID')}: {response.status_code} - {response.text}")
                                 
                         except Exception as e:
-                            error_messages.append(f"SKU {product.get('SKU')}: Connection failed - {e}")
+                            error_messages.append(f"SKU {product.get('Record ID')}: Connection failed - {e}")
                     
                     # Report results back to the user
                     if success_count == len(products):
