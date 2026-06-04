@@ -81,8 +81,12 @@ if st.session_state["authenticated"]:
             is_valid = False
             
         if not missing_cols:
+            # THE FIX: Force SKU to be a string and strip any rogue '.0' decimals from Excel
+            df["SKU"] = df["SKU"].astype(str).str.replace(r'\.0$', '', regex=True)
+
             # Check B: Missing SKUs
-            missing_skus = df["SKU"].isnull().sum()
+            # Note: Because we converted to string, "nan" might appear if it was empty. 
+            missing_skus = df["SKU"].isin(['nan', 'None', '']).sum()
             if missing_skus > 0:
                 errors.append(f"**Missing Data:** Found {missing_skus} row(s) missing a `SKU` value.")
                 is_valid = False
@@ -145,7 +149,7 @@ if st.session_state["authenticated"]:
                     # Loop through each row and POST to Salsify
                     for product in products:
                         
-                        # THE FIX: Map the SKU to the required Salsify 'Record ID' property
+                        # Map the strictly-formatted string SKU to the required Salsify 'Record ID'
                         product["Record ID"] = product["SKU"]
                         
                         try:
