@@ -15,9 +15,9 @@ with col1:
     st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2wAZOzqwlQiRXdCY4ziKoirVvgKpt6wbnWw&s", width=200)
 
 with col2:
-    # Homer Simpson GIF (Right aligned using HTML/CSS)
+    # Salsify Logo (Right aligned using HTML/CSS)
     st.markdown(
-        "<div style='text-align: right;'><img src='https://media.tenor.com/oN9iaajHndsAAAAM/homer-simpson-les-simpson.gif' width='200'></div>", 
+        "<div style='text-align: right;'><img src='https://www.salsify.com/hubfs/2023/Logos/Full%20Logo%20-%20Blue.svg' width='200'></div>", 
         unsafe_allow_html=True
     )
 
@@ -132,6 +132,10 @@ if st.session_state["authenticated"]:
         # SHOW RESULTS TO SUPPLIER
         if not is_valid:
             st.error("❌ Validation Failed! Please fix the errors below and re-upload.")
+            
+            # --- THE SURPRISE HOMER GIF ---
+            st.image("https://media.tenor.com/oN9iaajHndsAAAAM/homer-simpson-les-simpson.gif", width=300)
+            
             for err in errors:
                 st.markdown(err)
         else:
