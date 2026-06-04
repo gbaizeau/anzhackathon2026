@@ -6,14 +6,15 @@ import requests
 # Set up page config
 st.set_page_config(page_title="Kroger Supplier Onboarding", page_icon="🛒")
 
-# --- KROGER LOGO ---
-st.markdown("<img src='https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Kroger_logo_%282019%29.svg/500px-Kroger_logo_%282019%29.svg.png' width='200'>", unsafe_allow_html=True)
+# --- KROGER LOGO (Fixed using official corporate site media) ---
+st.image("https://www.thekrogerco.com/wp-content/uploads/2019/11/Kroger-Logo.png", width=200)
 
 st.title("🛒 Supplier Data Onboarding Portal")
 st.subheader("Validate your product feed before Salsify ingestion")
 
 # --- 1. DEFINE ALLOWED TOKENS & SALSIFY TEMPLATE REQUIREMENTS ---
 ALLOWED_TOKENS = [
+    "GREG", # Fast-access token
     "KROGER-2026-ALPHA",
     "KROGER-2026-BETA",
     "KROGER-2026-GAMMA",
@@ -21,7 +22,6 @@ ALLOWED_TOKENS = [
     "KROGER-2026-EPSILON"
 ]
 
-# Added 'Main Image' to required columns
 REQUIRED_COLUMNS = ["SKU", "Product_Name", "Price", "Brand", "Main Image"]
 APPROVED_BRANDS = ["Nike", "Adidas", "Puma", "Reebok", "Kroger"]
 
@@ -50,7 +50,7 @@ if st.session_state["authenticated"]:
 
     st.markdown("---")
     
-    # FILE UPLOADER UI (Updated to accept xlsx)
+    # FILE UPLOADER UI 
     uploaded_file = st.file_uploader("Drag and drop your supplier CSV or Excel file here", type=["csv", "xlsx"])
 
     if uploaded_file is not None:
@@ -97,7 +97,6 @@ if st.session_state["authenticated"]:
                 is_valid = False
 
             # Check E: Main Image is a valid URL
-            # Checks if the string starts with http:// or https://
             invalid_urls = df[~df["Main Image"].astype(str).str.startswith(('http://', 'https://'), na=False) & df["Main Image"].notnull()]
             if not invalid_urls.empty:
                 errors.append("**Invalid Image URL:** The `Main Image` column must contain a valid public link starting with `http://` or `https://`.")
@@ -111,14 +110,14 @@ if st.session_state["authenticated"]:
         else:
             st.success("✅ Validation Passed! Your file matches the Salsify PXM template perfectly.")
             
-            # THE REAL API HANDOFF
+            # --- 4. THE REAL API HANDOFF ---
             if st.button("🚀 Push Clean Data to Salsify"):
                 with st.spinner("Authenticating and pushing to Salsify..."):
                     
-                    payload = df.to_dict(orient='records')
-                    
-                    salsify_url = "https://app.salsify.com/api/v1/products" 
-                    salsify_token = "YOUR_SALSIFY_TOKEN_HERE" 
+                    # Salsify Configuration
+                    org_id = "s-ed0a6d00-4fff-4c27-9a21-3a511984007d"
+                    salsify_url = f"https://app.salsify.com/api/v1/orgs/{org_id}/products"
+                    salsify_token = "ZDIYg45PzejWjHR-6TfpUTfQM8FfirbrD5ukT1ajzGY"
                     
                     headers = {
                         "Authorization": f"Bearer {salsify_token}",
@@ -126,14 +125,34 @@ if st.session_state["authenticated"]:
                         "Accept": "application/json"
                     }
                     
-                    try:
-                        response = requests.post(salsify_url, headers=headers, json=payload)
-                        
-                        if response.status_code in [200, 201, 202, 204]: 
-                            st.balloons()
-                            st.success("Boom! Data successfully ingested into Salsify via API.")
-                        else:
-                            st.error(f"Salsify API Error ({response.status_code}): {response.text}")
+                    # Convert the Pandas dataframe into a list of dictionaries
+                    products = df.to_dict(orient='records')
+                    success_count = 0
+                    error_messages = []
+                    
+                    # Loop through each row and POST to Salsify
+                    for product in products:
+                        # Salsify generally requires the unique identifier mapped in the payload. 
+                        # We pass the entire row as the payload attributes.
+                        try:
+                            response = requests.post(salsify_url, headers=headers, json=product)
                             
-                    except Exception as e:
-                        st.error(f"Failed to connect to the API: {e}")
+                            # 200, 201, 202, 204 are successful HTTP codes
+                            if response.status_code in [200, 201, 202, 204]: 
+                                success_count += 1
+                            else:
+                                error_messages.append(f"SKU {product.get('SKU')}: {response.status_code} - {response.text}")
+                                
+                        except Exception as e:
+                            error_messages.append(f"SKU {product.get('SKU')}: Connection failed - {e}")
+                    
+                    # Report results back to the user
+                    if success_count == len(products):
+                        st.balloons()
+                        st.success(f"Boom! {success_count} products successfully ingested into Salsify.")
+                    else:
+                        st.warning(f"{success_count} out of {len(products)} products were ingested.")
+                        if error_messages:
+                            st.error("The following errors occurred during API transmission:")
+                            for err in error_messages:
+                                st.markdown(f"- {err}")
