@@ -6,7 +6,7 @@ import requests
 # Set up page config
 st.set_page_config(page_title="Kroger Supplier Onboarding", page_icon="🛒")
 
-# --- KROGER LOGO (Fixed using HTML so it bypasses Streamlit download blocks) ---
+# --- KROGER LOGO ---
 st.markdown("<img src='https://upload.wikimedia.org/wikipedia/commons/thumb/6/69/Kroger_logo_%282019%29.svg/500px-Kroger_logo_%282019%29.svg.png' width='200'>", unsafe_allow_html=True)
 
 st.title("🛒 Supplier Data Onboarding Portal")
@@ -21,15 +21,14 @@ ALLOWED_TOKENS = [
     "KROGER-2026-EPSILON"
 ]
 
-REQUIRED_COLUMNS = ["SKU", "Product_Name", "Price", "Brand"]
+# Added 'Main Image' to required columns
+REQUIRED_COLUMNS = ["SKU", "Product_Name", "Price", "Brand", "Main Image"]
 APPROVED_BRANDS = ["Nike", "Adidas", "Puma", "Reebok", "Kroger"]
 
 # --- 2. AUTHENTICATION (TOKEN VALIDATION) ---
-# Initialize session state so the app remembers the user is logged in
 if "authenticated" not in st.session_state:
     st.session_state["authenticated"] = False
 
-# The Login Gate
 if not st.session_state["authenticated"]:
     st.info("🔒 Please enter your Supplier Access Token to continue.")
     token_input = st.text_input("Access Token", type="password")
@@ -38,27 +37,29 @@ if not st.session_state["authenticated"]:
         if token_input in ALLOWED_TOKENS:
             st.session_state["authenticated"] = True
             st.success("✅ Token verified! Access granted.")
-            st.rerun()  # Refreshes the page to show the hidden UI
+            st.rerun()
         else:
-            # Updated error message
             st.error("❌ Your access token is invalid. Please contact Salsify Support.")
 
 # --- 3. MAIN APP (ONLY SHOWS IF AUTHENTICATED) ---
 if st.session_state["authenticated"]:
     
-    # Add a logout button for testing convenience
     if st.button("Logout"):
         st.session_state["authenticated"] = False
         st.rerun()
 
     st.markdown("---")
     
-    # FILE UPLOADER UI
-    uploaded_file = st.file_uploader("Drag and drop your supplier CSV file here", type=["csv"])
+    # FILE UPLOADER UI (Updated to accept xlsx)
+    uploaded_file = st.file_uploader("Drag and drop your supplier CSV or Excel file here", type=["csv", "xlsx"])
 
     if uploaded_file is not None:
-        # Read the file
-        df = pd.read_csv(uploaded_file)
+        
+        # Read the file based on its extension
+        if uploaded_file.name.endswith('.csv'):
+            df = pd.read_csv(uploaded_file)
+        elif uploaded_file.name.endswith('.xlsx'):
+            df = pd.read_excel(uploaded_file)
         
         st.markdown("### 🔍 Step 1: Previewing Uploaded Data")
         st.dataframe(df.head(5), use_container_width=True)
@@ -75,9 +76,8 @@ if st.session_state["authenticated"]:
             errors.append(f"**Missing Columns:** Your file is missing required Salsify headers: `{', '.join(missing_cols)}`")
             is_valid = False
             
-        # Run cell-level checks only if columns match
         if not missing_cols:
-            # Check B: Missing SKUs (Empty cells)
+            # Check B: Missing SKUs
             missing_skus = df["SKU"].isnull().sum()
             if missing_skus > 0:
                 errors.append(f"**Missing Data:** Found {missing_skus} row(s) missing a `SKU` value.")
@@ -89,11 +89,18 @@ if st.session_state["authenticated"]:
                 errors.append("**Data Type Error:** The `Price` column contains letters or symbols. It must be numbers only.")
                 is_valid = False
                 
-            # Check D: Brand Validation (Allowed List)
+            # Check D: Brand Validation
             invalid_rows = df[~df["Brand"].isin(APPROVED_BRANDS) & df["Brand"].notnull()]
             if not invalid_rows.empty:
                 bad_brands = invalid_rows["Brand"].unique()
                 errors.append(f"**Invalid Brand Name:** Found unapproved brands: `{', '.join(map(str, bad_brands))}`. Allowed Salsify list: {APPROVED_BRANDS}")
+                is_valid = False
+
+            # Check E: Main Image is a valid URL
+            # Checks if the string starts with http:// or https://
+            invalid_urls = df[~df["Main Image"].astype(str).str.startswith(('http://', 'https://'), na=False) & df["Main Image"].notnull()]
+            if not invalid_urls.empty:
+                errors.append("**Invalid Image URL:** The `Main Image` column must contain a valid public link starting with `http://` or `https://`.")
                 is_valid = False
 
         # SHOW RESULTS TO SUPPLIER
@@ -108,10 +115,8 @@ if st.session_state["authenticated"]:
             if st.button("🚀 Push Clean Data to Salsify"):
                 with st.spinner("Authenticating and pushing to Salsify..."):
                     
-                    # Convert the Pandas dataframe into a JSON payload
                     payload = df.to_dict(orient='records')
                     
-                    # NOTE: We will update this block in the next step when you provide the token!
                     salsify_url = "https://app.salsify.com/api/v1/products" 
                     salsify_token = "YOUR_SALSIFY_TOKEN_HERE" 
                     
