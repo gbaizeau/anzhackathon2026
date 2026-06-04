@@ -6,8 +6,20 @@ import requests
 # Set up page config
 st.set_page_config(page_title="Kroger Supplier Onboarding", page_icon="🛒")
 
-# --- KROGER LOGO ---
-st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2wAZOzqwlQiRXdCY4ziKoirVvgKpt6wbnWw&s", width=200)
+# --- HEADER LOGOS ---
+# Create two columns to push the logos to opposite sides
+col1, col2 = st.columns(2)
+
+with col1:
+    # Kroger Logo (Left aligned automatically)
+    st.image("https://encrypted-tbn0.gstatic.com/images?q=tbn:ANd9GcS2wAZOzqwlQiRXdCY4ziKoirVvgKpt6wbnWw&s", width=200)
+
+with col2:
+    # Salsify Logo (Right aligned using HTML/CSS)
+    st.markdown(
+        "<div style='text-align: right;'><img src='https://www.salsify.com/hubfs/2023/Logos/Full%20Logo%20-%20Blue.svg' width='200'></div>", 
+        unsafe_allow_html=True
+    )
 
 st.title("🛒 Supplier Data Onboarding Portal")
 st.subheader("Validate your product feed before Salsify ingestion")
@@ -151,7 +163,7 @@ if st.session_state["authenticated"]:
                         # Map the strictly-formatted string SKU to the required Salsify 'Record ID'
                         product["Record ID"] = product["SKU"]
                         
-                        # THE FIX: Clean up the payload before sending it to Salsify
+                        # Clean up the payload before sending it to Salsify
                         product.pop("SKU", None)         # Remove SKU since it's mapped to Record ID
                         product.pop("Main Image", None)  # Remove URL to prevent digital asset property errors
                         
