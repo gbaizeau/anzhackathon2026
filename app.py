@@ -148,7 +148,7 @@ if st.session_state["authenticated"]:
                     # Salsify Configuration
                     org_id = "s-ed0a6d00-4fff-4c27-9a21-3a511984007d"
                     salsify_url = f"https://app.salsify.com/api/v1/orgs/{org_id}/products"
-                    salsify_token = "ZDIYg45PzejWjHR-6TfpUTfQM8FfirbrD5ukT1ajzGY"
+                    salsify_token = "XXXX"
                     
                     headers = {
                         "Authorization": f"Bearer {salsify_token}",
